@@ -2,6 +2,9 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
+      - release
   pull_request:
 
 jobs:
@@ -20,6 +23,7 @@ jobs:
         run: SPRING_PROFILES_ACTIVE=test ./gradlew test
 
       - name: Docker build
+        if: github.ref == 'refs/heads/release'
         run: |
           docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
           docker build -t ref-backend .
@@ -27,6 +31,7 @@ jobs:
           docker push naraekn/ref-backend:${GITHUB_SHA::7}
 
       - name: Deploy
+        if: github.ref == 'refs/heads/release'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.AWS_HOST }}
