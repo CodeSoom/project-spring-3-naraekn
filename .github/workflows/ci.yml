@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - release
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 16
+        uses: actions/setup-java@v2
+        with:
+          java-version: '16'
+          distribution: 'adopt'
+      - name: Grant execution permission for gradlew
+        run: chmod +x gradlew
+      - name: Test
+        run: SPRING_PROFILES_ACTIVE=test ./gradlew test
+
+      - name: Docker build
+        if: github.ref == 'refs/heads/release'
+        run: |
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker build -t ref-backend .
+          docker tag ref-backend naraekn/ref-backend:${GITHUB_SHA::7}
+          docker push naraekn/ref-backend:${GITHUB_SHA::7}
+
+      - name: Deploy
+        if: github.ref == 'refs/heads/release'
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USERNAME }}
+          key: ${{ secrets.AWS_PRIVATE_KEY }}
+          envs: REPO,IMAGE,GITHUB_SHA
+          script: |
+            docker pull naraekn/ref-backend:${GITHUB_SHA::7}
+            docker tag naraekn/ref-backend:${GITHUB_SHA::7} ref-backend
+            docker stop server
+            docker container rm server
+            docker run -it -d \
+              -p 80:8080 --name server --restart always \
+              --network my-network \
+              -v $(pwd)/setting/application.yml:/application.yml \
+              ref-backend
