@@ -1,4 +1,4 @@
-package com.naraekn.ref;
+package com.naraekn.ref.controllers;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
